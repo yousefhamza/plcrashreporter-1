@@ -200,6 +200,9 @@ message CrashReport {
 
             /* Register value (32-bit or 64-bit) */
             required uint64 value = 2;
+
+            /* Content which register hold reference to it */
+            optional string content = 3;
         }
 
         /* Thread registers (required if this is the crashed thread, optional otherwise). Note that if an error occurs
