@@ -45,6 +45,7 @@
 #import "PLCrashLogWriterEncoding.h"
 #import "PLCrashAsyncSignalInfo.h"
 #import "PLCrashAsyncSymbolication.h"
+#include "PLCrashRegisterContent.h"
 
 #import "PLCrashSysctl.h"
 #import "PLCrashProcessInfo.h"
@@ -135,6 +136,12 @@ enum {
 
     /** CrashReport.thread.register.value */
     PLCRASH_PROTO_THREAD_REGISTER_VALUE_ID = 2,
+    
+    /** CrashReport.thread.register.type */
+    PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID = 3,
+    
+    /** CrashReport.thread.register.content */
+    PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID = 4,
 
 
     /** CrashReport.images */
@@ -735,6 +742,45 @@ static size_t plcrash_writer_write_process_info (plcrash_async_file_t *file, con
     return rv;
 }
 
+#pragma mark - Memory Types -
+
+#define PLCrashMemType_Block               "objc_block"
+#define PLCrashMemType_Class               "objc_class"
+#define PLCrashMemType_NullPointer         "null_pointer"
+#define PLCrashMemType_Object              "objc_object"
+#define PLCrashMemType_String              "string"
+#define PLCrashMemType_Unknown             "unknown"
+
+static size_t plcrash_writer_write_thread_register_content(plcrash_async_file_t *file, const char* const regname, const uintptr_t address) {
+//    (*limit)--;
+    size_t rv = 0;
+    const void* object = (const void*)address;
+    {
+//        writeZombieIfPresent(writer, KSCrashField_LastDeallocObject, address);
+//        if(!writeObjCObject(writer, address, limit))
+//        {
+            if(object == NULL)
+            {
+                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_NullPointer);
+//                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
+            }
+            else if(isValidString(object))
+            {
+                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_String);
+//                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
+                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_VALUE_ID, PLPROTOBUF_C_TYPE_STRING, (const char*)object);
+//                writer->addStringElement(writer, KSCrashField_Value, (const char*)object);
+            }
+            else
+            {
+                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_Unknown);
+//                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
+            }
+//        }
+    }
+    return rv;
+}
+
 /**
  * @internal
  *
@@ -754,6 +800,10 @@ static size_t plcrash_writer_write_thread_register (plcrash_async_file_t *file, 
     /* Write the value */
     uint64val = regval;
     rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_VALUE_ID, PLPROTOBUF_C_TYPE_UINT64, &uint64val);
+
+    if (plregister_is_notable_address(regval)) {
+        rv += plcrash_writer_write_thread_register_content(file, regname, regval);
+    }
     
     return rv;
 }
