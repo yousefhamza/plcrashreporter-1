@@ -146,7 +146,7 @@ enum
 #pragma mark - objc4-680/runtime/runtime.h -
 // ======================================================================
     
-typedef struct objc_cache *Cache;
+//typedef struct objc_cache *Cache;
 
 
 // ======================================================================
@@ -251,7 +251,7 @@ typedef struct class_t {
     struct class_t *superclass;
 #pragma clang diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    Cache cache;
+//    Cache cache;
 #pragma clang diagnostic pop
     IMP *vtable;
     uintptr_t data_NEVER_USE;  // class_rw_t * plus custom rr/alloc flags
