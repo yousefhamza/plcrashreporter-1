@@ -175,12 +175,6 @@ static const struct class_t* decodeIsaPointer(const void* const isaPointer)
 
 static const void* getIsaPointer(const void* const objectOrClassPtr)
 {
-    // This is wrong. Should not get class data here.
-//    if(plobjc_isTaggedPointer(objectOrClassPtr))
-//    {
-//        return getClassDataFromTaggedPointer(objectOrClassPtr)->class;
-//    }
-    
     const struct class_t* ptr = objectOrClassPtr;
     return decodeIsaPointer(ptr->isa);
 }
@@ -699,42 +693,6 @@ static int taggedDateDescription(const void* object, char* buffer, int bufferLen
 //======================================================================
 #pragma mark - NSNumber -
 //======================================================================
-
-#define NSNUMBER_CASE(CFTYPE, RETURN_TYPE, CAST_TYPE, DATA) \
-    case CFTYPE: \
-    { \
-        RETURN_TYPE result; \
-        memcpy(&result, DATA, sizeof(result)); \
-        return (CAST_TYPE)result; \
-    }
-
-#define EXTRACT_AND_RETURN_NSNUMBER(OBJECT, RETURN_TYPE) \
-    if(isValidTaggedPointer(object)) \
-    { \
-        return extractTaggedNSNumber(object); \
-    } \
-    const struct __CFNumber* number = OBJECT; \
-    CFNumberType cftype = CFNumberGetType((CFNumberRef)OBJECT); \
-    const void *data = &(number->_pad); \
-    switch(cftype) \
-    { \
-        NSNUMBER_CASE( kCFNumberSInt8Type,     int8_t,    RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberSInt16Type,    int16_t,   RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberSInt32Type,    int32_t,   RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberSInt64Type,    int64_t,   RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberFloat32Type,   Float32,   RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberFloat64Type,   Float64,   RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberCharType,      char,      RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberShortType,     short,     RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberIntType,       int,       RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberLongType,      long,      RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberLongLongType,  long long, RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberFloatType,     float,     RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberDoubleType,    double,    RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberCFIndexType,   CFIndex,   RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberNSIntegerType, NSInteger, RETURN_TYPE, data ) \
-        NSNUMBER_CASE( kCFNumberCGFloatType,   CGFloat,   RETURN_TYPE, data ) \
-    }
 
 static bool taggedNumberIsValid(const void* const object)
 {
