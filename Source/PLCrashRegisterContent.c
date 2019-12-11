@@ -7,30 +7,9 @@
 
 #include "PLCrashRegisterContent.h"
 #include "PLObjC.h"
-#include "KSMemory.h"
-#include "KSString.h"
+#include "PLMemory.h"
+#include "PLString.h"
 #include "KSObjCApple.h"
-
-//
-//static void writeNotableRegisters(const KSCrashReportWriter* const writer,
-//                                  const struct KSMachineContext* const machineContext)
-//{
-//    char registerNameBuff[30];
-//    const char* registerName;
-//    const int numRegisters = kscpu_numRegisters();
-//    for(int reg = 0; reg < numRegisters; reg++)
-//    {
-//        registerName = kscpu_registerName(reg);
-//        if(registerName == NULL)
-//        {
-//            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-//            registerName = registerNameBuff;
-//        }
-//        writeMemoryContentsIfNotable(writer,
-//                                     registerName,
-//                                     (uintptr_t)kscpu_registerValue(machineContext, reg));
-//    }
-//}
 
 typedef struct
 {
@@ -127,16 +106,4 @@ bool plregister_is_notable_address(const uintptr_t address)
     }
 
     return false;
-}
-
-
-
-char const *plregister_get_content(const char* const regname, const uintptr_t address)
-{
-//    if(plregister_is_notable_address(address))
-//    {
-//        int limit = kPLDefaultMemorySearchDepth;
-////        return plregister_content(regname, address, &limit);
-//    }
-    return NULL;
 }

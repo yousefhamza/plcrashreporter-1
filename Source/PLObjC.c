@@ -27,10 +27,9 @@
 
 #include "PLObjC.h"
 #include "KSObjCApple.h"
-//
-#include "KSMemory.h"
-//#include "KSString.h"
-//
+
+#include "PLMemory.h"
+
 //#include "KSLogger.h"
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > 70000

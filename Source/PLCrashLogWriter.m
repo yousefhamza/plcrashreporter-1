@@ -746,150 +746,26 @@ static size_t plcrash_writer_write_process_info (plcrash_async_file_t *file, con
 
 #pragma mark - Memory Types -
 
-#define PLCrashMemType_Block               "objc_block"
-#define PLCrashMemType_Class               "objc_class"
 #define PLCrashMemType_NullPointer         "null_pointer"
-#define PLCrashMemType_Object              "objc_object"
 #define PLCrashMemType_String              "string"
 #define PLCrashMemType_Unknown             "unknown"
 
-static bool isRestrictedClass(const char* name)
-{
-    /* This is set by the user via an API  */
-//    if(g_introspectionRules.restrictedClasses != NULL)
-//    {
-//        for(int i = 0; i < g_introspectionRules.restrictedClassesCount; i++)
-//        {
-//            if(strcmp(name, g_introspectionRules.restrictedClasses[i]) == 0)
-//            {
-//                return true;
-//            }
-//        }
-//    }
-    return false;
-}
-
-static size_t plcrash_writer_write_objc_string(plcrash_async_file_t *file,
-                                               const char* const regname,
-                                               const uintptr_t address)
-{
-    size_t rv = 0;
-    const void* object = (const void*)address;
-    char buffer[200];
-    if(plobjc_copyStringContents(object, buffer, sizeof(buffer)))
-    {
-        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, buffer);
-//        writer->addStringElement(writer, key, buffer);
-    }
-    return rv;
-}
-
-static size_t plcrash_writer_write_objc_object(plcrash_async_file_t *file, const char* const regname, const uintptr_t address) {
-    size_t rv = 0;
-    const void* object = (const void*)address;
-    switch(plobjc_objectType(object))
-    {
-        case PLObjCTypeClass:
-            rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_Class);
-            rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, plobjc_className(object));
-//            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Class);
-//            writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(object));
-            return rv;
-        case PLObjCTypeObject:
-        {
-            // No need to write use class as type
-//            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
-            const char* className = plobjc_objectClassName(object);
-            rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, className);
-//            writer->addStringElement(writer, KSCrashField_Class, className);
-            if(!isRestrictedClass(className))
-            {
-                switch(plobjc_objectClassType(object))
-                {
-                    case PLObjCClassTypeString:
-                        rv += plcrash_writer_write_objc_string(file, regname, address);
-//                        writeNSStringContents(writer, KSCrashField_Value, address, limit);
-                        break;
-                    case PLObjCClassTypeURL:
-//                        writeURLContents(writer, KSCrashField_Value, address, limit);
-                        break;
-                    case PLObjCClassTypeDate:
-//                        writeDateContents(writer, KSCrashField_Value, address, limit);
-                        break;
-                    case PLObjCClassTypeArray:
-//                        if(*limit > 0)
-//                        {
-//                            writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
-//                        }
-                        break;
-                    case PLObjCClassTypeNumber:
-//                        writeNumberContents(writer, KSCrashField_Value, address, limit);
-                        break;
-//                    case PLObjCClassTypeDictionary:
-//                    case PLObjCClassTypeException:
-//                        // TODO: Implement these.
-//                        if(*limit > 0)
-//                        {
-//                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-//                        }
-//                        return true;
-                    case PLObjCClassTypeUnknown:
-//                        if(*limit > 0)
-//                        {
-//                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-//                        }
-                        break;
-                    case PLObjCClassTypeDictionary:
-                    case PLObjCClassTypeException:
-                        // Not implemented yet
-                        break;
-                }
-            }
-            break;
-        }
-        case PLObjCTypeBlock:
-            rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_Block);
-//            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
-            const char* className = plobjc_objectClassName(object);
-            rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, className);
-//            writer->addStringElement(writer, KSCrashField_Class, className);
-            break;
-        case PLObjCTypeUnknown:
-            break;
-    }
-
-    return rv;
-}
-
-
 static size_t plcrash_writer_write_thread_register_content(plcrash_async_file_t *file, const char* const regname, const uintptr_t address) {
-//    (*limit)--;
     size_t rv = 0;
     const void* object = (const void*)address;
+    if(object == NULL)
     {
-////        writeZombieIfPresent(writer, KSCrashField_LastDeallocObject, address);
-        size_t write_objc_rv = plcrash_writer_write_objc_object(file, regname, address);
-        if(write_objc_rv == 0)
-        {
-            if(object == NULL)
-            {
-                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_NullPointer);
-////                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
-            }
-            else if(isValidString(object))
-            {
-                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_String);
-////                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
-                
-                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, (const char*)object);
-////                writer->addStringElement(writer, KSCrashField_Value, (const char*)object);
-            }
-            else
-            {
-                rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_Unknown);
-////                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
-            }
-        }
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_NullPointer);
+    }
+    else if(isValidString(object))
+    {
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_String);
+        
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, (const char*)object);
+    }
+    else
+    {
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_Unknown);
     }
     return rv;
 }

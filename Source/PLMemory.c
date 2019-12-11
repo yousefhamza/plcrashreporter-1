@@ -25,10 +25,7 @@
 //
 
 
-#include "KSMemory.h"
-
-//#define KSLogger_LocalLevel TRACE
-//#include "KSLogger.h"
+#include "PLMemory.h"
 
 #include <mach/mach.h>
 
