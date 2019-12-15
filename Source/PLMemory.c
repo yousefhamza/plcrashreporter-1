@@ -110,25 +110,6 @@ static inline bool isMemoryReadable(const void* const memory, const int byteCoun
     return bytesRemaining == 0;
 }
 
-int plmem_maxReadableBytes(const void* const memory, const int tryByteCount)
-{
-    const int testBufferSize = sizeof(g_memoryTestBuffer);
-    const uint8_t* currentPosition = memory;
-    int bytesRemaining = tryByteCount;
-
-    while(bytesRemaining > testBufferSize)
-    {
-        if(!isMemoryReadable(currentPosition, testBufferSize))
-        {
-            break;
-        }
-        currentPosition += testBufferSize;
-        bytesRemaining -= testBufferSize;
-    }
-    bytesRemaining -= copyMaxPossible(currentPosition, g_memoryTestBuffer, testBufferSize);
-    return tryByteCount - bytesRemaining;
-}
-
 bool plmem_isMemoryReadable(const void* const memory, const int byteCount)
 {
     return isMemoryReadable(memory, byteCount);

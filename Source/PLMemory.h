@@ -49,15 +49,6 @@ extern "C" {
  */
 bool plmem_isMemoryReadable(const void* const memory, const int byteCount);
 
-/** Test how much memory is readable from the specified pointer.
- *
- * @param memory A pointer to the memory to test.
- * @param tryByteCount The number of bytes to test.
- *
- * @return The number of bytes that are readable from that address.
- */
-int plmem_maxReadableBytes(const void* const memory, const int tryByteCount);
-
 /** Copy memory safely. If the memory is not accessible, returns false
  * rather than crashing.
  *
