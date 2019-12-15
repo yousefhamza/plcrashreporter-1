@@ -38,6 +38,8 @@ extern "C" {
 /** Check if a memory address contains a null terminated UTF-8 string.
  *
  * @param address The memory adress to test.
+ *
+ * @return Returns true if address is is valid string, false otherwise.
  */
 bool plstring_is_valid(const void* const address);
 
