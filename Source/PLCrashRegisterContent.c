@@ -9,7 +9,7 @@
 #include "PLObjC.h"
 #include "PLMemory.h"
 #include "PLString.h"
-#include "KSObjCApple.h"
+#include "PLObjCApple.h"
 
 static inline bool plregister_is_valid_pointer(const uintptr_t address)
 {

@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSString_h
-#define HDR_KSString_h
+#ifndef HDR_PLString_h
+#define HDR_PLString_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,4 +47,4 @@ bool plstring_is_valid(const void* const address);
 }
 #endif
 
-#endif // HDR_KSString_h
+#endif // HDR_PLString_h

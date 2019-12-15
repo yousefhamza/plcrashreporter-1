@@ -29,8 +29,8 @@
  */
 
 
-#ifndef HDR_ksmemory_h
-#define HDR_ksmemory_h
+#ifndef HDR_plmemory_h
+#define HDR_plmemory_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,4 +79,4 @@ int plmem_copyMaxPossible(const void* restrict const src, void* restrict const d
 }
 #endif
 
-#endif // HDR_ksmemory_h
+#endif // HDR_plmemory_h
