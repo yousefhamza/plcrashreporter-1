@@ -28,10 +28,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include "PLString.h"
+#include "PLMemory.h"
+
+#define kPLMinStringLength 4
 
 // Compiler hints for "if" statements
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
+
+bool plstring_isNullTerminatedUTF8String(const void* memory,
+                                         int minLength,
+                                         int maxLength);
 
 static const int g_printableControlChars[0x20] =
 {
@@ -97,4 +104,24 @@ bool plstring_isNullTerminatedUTF8String(const void* memory,
         }
     }
     return false;
+}
+
+bool plstring_is_valid(const void* const address)
+{
+    if((void*)address == NULL)
+    {
+        return false;
+    }
+
+    char buffer[500];
+    if((uintptr_t)address+sizeof(buffer) < (uintptr_t)address)
+    {
+        // Wrapped around the address range.
+        return false;
+    }
+    if(!plmem_copySafely(address, buffer, sizeof(buffer)))
+    {
+        return false;
+    }
+    return plstring_isNullTerminatedUTF8String(buffer, kPLMinStringLength, sizeof(buffer));
 }

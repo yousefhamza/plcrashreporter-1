@@ -61,26 +61,6 @@ static inline const char* plregister_plzombie_className(const void* object)
     return NULL;
 }
 
-bool isValidString(const void* const address)
-{
-    if((void*)address == NULL)
-    {
-        return false;
-    }
-
-    char buffer[500];
-    if((uintptr_t)address+sizeof(buffer) < (uintptr_t)address)
-    {
-        // Wrapped around the address range.
-        return false;
-    }
-    if(!plmem_copySafely(address, buffer, sizeof(buffer)))
-    {
-        return false;
-    }
-    return plstring_isNullTerminatedUTF8String(buffer, kPLMinStringLength, sizeof(buffer));
-}
-
 bool plregister_is_notable_address(const uintptr_t address)
 {
     if(!plregister_is_valid_pointer(address))
@@ -100,7 +80,7 @@ bool plregister_is_notable_address(const uintptr_t address)
         return true;
     }
 
-    if(isValidString(object))
+    if(plstring_is_valid(object))
     {
         return true;
     }

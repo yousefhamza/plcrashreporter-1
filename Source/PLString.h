@@ -31,21 +31,15 @@
 extern "C" {
 #endif
 
-
 #include <stdbool.h>
 #include <stdint.h>
 
 
-/** Check if a memory location contains a null terminated UTF-8 string.
+/** Check if a memory address contains a null terminated UTF-8 string.
  *
- * @param memory The memory location to test.
- *
- * @param minLength The minimum length to be considered a valid string.
- *
- * @param maxLength The maximum length to be considered a valid string.
+ * @param address The memory adress to test.
  */
-bool plstring_isNullTerminatedUTF8String(const void* memory, int minLength, int maxLength);
-
+bool plstring_is_valid(const void* const address);
 
 #ifdef __cplusplus
 }

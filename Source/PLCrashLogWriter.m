@@ -51,6 +51,7 @@
 #import "PLCrashProcessInfo.h"
 
 #import "PLObjC.h"
+#import "PLString.h"
 
 #if TARGET_OS_IPHONE
 #import <UIKit/UIKit.h> // For UIDevice
@@ -757,7 +758,7 @@ static size_t plcrash_writer_write_thread_register_content(plcrash_async_file_t 
     {
         rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_NullPointer);
     }
-    else if(isValidString(object))
+    else if(plstring_is_valid(object))
     {
         rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_String);
         
