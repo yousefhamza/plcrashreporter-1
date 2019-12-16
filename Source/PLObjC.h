@@ -74,14 +74,14 @@ typedef struct
  * @param pointer The pointer to check.
  * @return true if it's a tagged pointer.
  */
-bool plobjc_isTaggedPointer(const void* const pointer);
+bool plobjc_is_tagged_pointer(const void* const pointer);
 
 /** Check if a pointer is a valid tagged pointer.
  *
  * @param pointer The pointer to check.
  * @return true if it's a valid tagged pointer.
  */
-bool plobjc_isValidTaggedPointer(const void* const pointer);
+bool plobjc_is_valid_tagged_pointer(const void* const pointer);
     
 /** Query a pointer to see what kind of object it points to.
  * If the pointer points to a class, this method will verify that its basic
@@ -100,7 +100,7 @@ bool plobjc_isValidTaggedPointer(const void* const pointer);
  * @return The type of object, or PLObjCTypeNone if it was not an object or
  *         was inaccessible.
  */
-PLObjCType plobjc_objectType(const void* objectOrClassPtr);
+PLObjCType plobjc_object_type(const void* objectOrClassPtr);
 
 #ifdef __cplusplus
 }

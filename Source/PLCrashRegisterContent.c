@@ -18,9 +18,9 @@ static inline bool plregister_is_valid_pointer(const uintptr_t address)
         return false;
     }
 
-    if(plobjc_isTaggedPointer((const void*)address))
+    if(plobjc_is_tagged_pointer((const void*)address))
     {
-        if(!plobjc_isValidTaggedPointer((const void*)address))
+        if(!plobjc_is_valid_tagged_pointer((const void*)address))
         {
             return false;
         }
@@ -38,7 +38,7 @@ bool plregister_is_notable_address(const uintptr_t address)
     
     const void* object = (const void*)address;
 
-    if(plobjc_objectType(object) != PLObjCTypeUnknown)
+    if(plobjc_object_type(object) != PLObjCTypeUnknown)
     {
         return true;
     }

@@ -49,7 +49,7 @@ typedef unsigned int NSUInteger;
 #include <objc/runtime.h>
 
 
-#define kMaxNameLength 128
+#define kPLMaxNameLength 128
 
 //======================================================================
 #pragma mark - Macros -
@@ -79,7 +79,7 @@ typedef struct
     PLObjCClassType type;
     ClassSubtype subtype;
     bool isMutable;
-    bool (*isValidObject)(const void* object);
+    bool (*plobjc_is_valid_object)(const void* object);
     int (*description)(const void* object, char* buffer, int bufferLength);
     const void* class;
 } ClassData;
@@ -90,30 +90,30 @@ typedef struct
 //======================================================================
 
 // Forward references
-static bool taggedObjectIsValid(const void* object);
-static bool taggedDateIsValid(const void* object);
-static bool taggedNumberIsValid(const void* object);
-static bool taggedStringIsValid(const void* object);
+static bool plobjc_tagged_object_is_valid(const void* object);
+static bool plobjc_tagged_date_is_valid(const void* object);
+static bool plobjc_tagged_number_is_valid(const void* object);
+static bool plobjc_tagged_string_is_valid(const void* object);
 
-static int taggedObjectDescription(const void* object, char* buffer, int bufferLength);
-static int taggedDateDescription(const void* object, char* buffer, int bufferLength);
-static int taggedNumberDescription(const void* object, char* buffer, int bufferLength);
-static int taggedStringDescription(const void* object, char* buffer, int bufferLength);
+static int plobjc_tagged_object_description(const void* object, char* buffer, int bufferLength);
+static int plobjc_tagged_date_description(const void* object, char* buffer, int bufferLength);
+static int plobjc_tagged_number_description(const void* object, char* buffer, int bufferLength);
+static int plobjc_tagged_string_description(const void* object, char* buffer, int bufferLength);
 
-static ClassData g_taggedClassData[] =
+static ClassData g_tagged_class_data[] =
 {
-    {"NSAtom",               PLObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   PLObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSString",             PLObjCClassTypeString,  ClassSubtypeNone,             false, taggedStringIsValid, taggedStringDescription},
-    {"NSNumber",             PLObjCClassTypeNumber,  ClassSubtypeNone,             false, taggedNumberIsValid, taggedNumberDescription},
-    {"NSIndexPath",          PLObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSManagedObjectID",    PLObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSDate",               PLObjCClassTypeDate,    ClassSubtypeNone,             false, taggedDateIsValid,   taggedDateDescription},
-    {NULL,                   PLObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSAtom",               PLObjCClassTypeUnknown, ClassSubtypeNone,             false, plobjc_tagged_object_is_valid, plobjc_tagged_object_description},
+    {NULL,                   PLObjCClassTypeUnknown, ClassSubtypeNone,             false, plobjc_tagged_object_is_valid, plobjc_tagged_object_description},
+    {"NSString",             PLObjCClassTypeString,  ClassSubtypeNone,             false, plobjc_tagged_string_is_valid, plobjc_tagged_string_description},
+    {"NSNumber",             PLObjCClassTypeNumber,  ClassSubtypeNone,             false, plobjc_tagged_number_is_valid, plobjc_tagged_number_description},
+    {"NSIndexPath",          PLObjCClassTypeUnknown, ClassSubtypeNone,             false, plobjc_tagged_object_is_valid, plobjc_tagged_object_description},
+    {"NSManagedObjectID",    PLObjCClassTypeUnknown, ClassSubtypeNone,             false, plobjc_tagged_object_is_valid, plobjc_tagged_object_description},
+    {"NSDate",               PLObjCClassTypeDate,    ClassSubtypeNone,             false, plobjc_tagged_date_is_valid,   plobjc_tagged_date_description},
+    {NULL,                   PLObjCClassTypeUnknown, ClassSubtypeNone,             false, plobjc_tagged_object_is_valid, plobjc_tagged_object_description},
 };
-static int g_taggedClassDataCount = sizeof(g_taggedClassData) / sizeof(*g_taggedClassData);
+static int g_tagged_class_data_count = sizeof(g_tagged_class_data) / sizeof(*g_tagged_class_data);
 
-static const char* g_blockBaseClassName = "NSBlock";
+static const char* g_block_base_class_name = "NSBlock";
 
 
 //======================================================================
@@ -121,13 +121,13 @@ static const char* g_blockBaseClassName = "NSBlock";
 //======================================================================
 
 #if SUPPORT_TAGGED_POINTERS
-static bool isTaggedPointer(const void* pointer) {return (((uintptr_t)pointer) & TAG_MASK) != 0; }
-static int getTaggedSlot(const void* pointer) { return (int)((((uintptr_t)pointer) >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK); }
-static uintptr_t getTaggedPayload(const void* pointer) { return (((uintptr_t)pointer) << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
+static bool plobjc_is_tagged_pointer_internal(const void* pointer) {return (((uintptr_t)pointer) & TAG_MASK) != 0; }
+static int  plobjc_get_tagged_slot(const void* pointer) { return (int)((((uintptr_t)pointer) >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK); }
+static uintptr_t  plobjc_get_tagged_payload(const void* pointer) { return (((uintptr_t)pointer) << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
 #else
-static bool isTaggedPointer(__unused const void* pointer) { return false; }
-static int getTaggedSlot(__unused const void* pointer) { return 0; }
-static uintptr_t getTaggedPayload(const void* pointer) { return (uintptr_t)pointer; }
+static bool plobjc_is_tagged_pointer_internal(__unused const void* pointer) { return false; }
+static int  plobjc_get_tagged_slot(__unused const void* pointer) { return 0; }
+static uintptr_t  plobjc_get_tagged_payload(const void* pointer) { return (uintptr_t)pointer; }
 #endif
 
 /** Get class data for a tagged pointer.
@@ -135,26 +135,26 @@ static uintptr_t getTaggedPayload(const void* pointer) { return (uintptr_t)point
  * @param object The tagged pointer.
  * @return The class data.
  */
-static const ClassData* getClassDataFromTaggedPointer(const void* const object)
+static const ClassData* plobjc_get_class_data_from_tagged_pointer(const void* const object)
 {
-    int slot = getTaggedSlot(object);
-    return &g_taggedClassData[slot];
+    int slot =  plobjc_get_tagged_slot(object);
+    return &g_tagged_class_data[slot];
 }
 
-static bool isValidTaggedPointer(const void* object)
+static bool plobjc_is_valid_tagged_pointer_internal(const void* object)
 {
-    if(isTaggedPointer(object))
+    if(plobjc_is_tagged_pointer_internal(object))
     {
-        if(getTaggedSlot(object) <= g_taggedClassDataCount)
+        if( plobjc_get_tagged_slot(object) <= g_tagged_class_data_count)
         {
-            const ClassData* classData = getClassDataFromTaggedPointer(object);
+            const ClassData* classData = plobjc_get_class_data_from_tagged_pointer(object);
             return classData->type != PLObjCClassTypeUnknown;
         }
     }
     return false;
 }
 
-static const struct class_t* decodeIsaPointer(const void* const isaPointer)
+static const struct class_t* plobjc_decode_Isa_pointer(const void* const isaPointer)
 {
 #if ISA_TAG_MASK
     uintptr_t isa = (uintptr_t)isaPointer;
@@ -173,36 +173,36 @@ static const struct class_t* decodeIsaPointer(const void* const isaPointer)
     return (const struct class_t*)isaPointer;
 }
 
-static const void* getIsaPointer(const void* const objectOrClassPtr)
+static const void* plobjc_get_Isa_pointer(const void* const objectOrClassPtr)
 {
     const struct class_t* ptr = objectOrClassPtr;
-    return decodeIsaPointer(ptr->isa);
+    return plobjc_decode_Isa_pointer(ptr->isa);
 }
 
-static inline struct class_rw_t* getClassRW(const struct class_t* const class)
+static inline struct class_rw_t* plobjc_get_class_RW(const struct class_t* const class)
 {
     uintptr_t ptr = class->data_NEVER_USE & (~WORD_MASK);
     return (struct class_rw_t*)ptr;
 }
 
-static inline const struct class_ro_t* getClassRO(const struct class_t* const class)
+static inline const struct class_ro_t* plobjc_get_class_RO(const struct class_t* const class)
 {
-    return getClassRW(class)->ro;
+    return plobjc_get_class_RW(class)->ro;
 }
 
-static inline bool isMetaClass(const void* const classPtr)
+static inline bool plobjc_is_meta_class(const void* const classPtr)
 {
-    return (getClassRO(classPtr)->flags & RO_META) != 0;
+    return (plobjc_get_class_RO(classPtr)->flags & RO_META) != 0;
 }
 
-static inline bool isRootClass(const void* const classPtr)
+static inline bool plobjc_is_root_class(const void* const classPtr)
 {
-    return (getClassRO(classPtr)->flags & RO_ROOT) != 0;
+    return (plobjc_get_class_RO(classPtr)->flags & RO_ROOT) != 0;
 }
 
-static inline const char* getClassName(const void* classPtr)
+static inline const char* plobjc_get_class_name(const void* classPtr)
 {
-    const struct class_ro_t* ro = getClassRO(classPtr);
+    const struct class_ro_t* ro = plobjc_get_class_RO(classPtr);
     return ro->name;
 }
 
@@ -211,9 +211,9 @@ static inline const char* getClassName(const void* classPtr)
  * @param object The object to query.
  * @return true if the tagged pointer is an NSNumber.
  */
-static bool isTaggedPointerNSNumber(const void* const object)
+static bool plobjc_is_tagged_pointer_internalNSNumber(const void* const object)
 {
-    return getTaggedSlot(object) == OBJC_TAG_NSNumber;
+    return  plobjc_get_tagged_slot(object) == OBJC_TAG_NSNumber;
 }
 
 /** Check if a tagged pointer is a string.
@@ -221,9 +221,9 @@ static bool isTaggedPointerNSNumber(const void* const object)
  * @param object The object to query.
  * @return true if the tagged pointer is an NSString.
  */
-static bool isTaggedPointerNSString(const void* const object)
+static bool plobjc_is_tagged_pointer_internalNSString(const void* const object)
 {
-    return getTaggedSlot(object) == OBJC_TAG_NSString;
+    return  plobjc_get_tagged_slot(object) == OBJC_TAG_NSString;
 }
 
 /** Check if a tagged pointer is a date.
@@ -231,9 +231,9 @@ static bool isTaggedPointerNSString(const void* const object)
  * @param object The object to query.
  * @return true if the tagged pointer is an NSDate.
  */
-static bool isTaggedPointerNSDate(const void* const object)
+static bool plobjc_is_tagged_pointer_internalNSDate(const void* const object)
 {
-    return getTaggedSlot(object) == OBJC_TAG_NSDate;
+    return  plobjc_get_tagged_slot(object) == OBJC_TAG_NSDate;
 }
 
 /** Extract an integer from a tagged NSNumber.
@@ -241,7 +241,7 @@ static bool isTaggedPointerNSDate(const void* const object)
  * @param object The NSNumber object (must be a tagged pointer).
  * @return The integer value.
  */
-static int64_t extractTaggedNSNumber(const void* const object)
+static int64_t plobjc_extract_tagged_NSNumber(const void* const object)
 {
     intptr_t signedPointer = (intptr_t)object;
 #if SUPPORT_TAGGED_POINTERS
@@ -254,17 +254,17 @@ static int64_t extractTaggedNSNumber(const void* const object)
     return (int64_t)(value >> 4);
 }
 
-static int getTaggedNSStringLength(const void* const object)
+static int plobjc_get_tagged_NSString_length(const void* const object)
 {
-    uintptr_t payload = getTaggedPayload(object);
+    uintptr_t payload =  plobjc_get_tagged_payload(object);
     return (int)(payload & 0xf);
 }
 
-static int extractTaggedNSString(const void* const object, char* buffer, int bufferLength)
+static int plobjc_extract_tagged_NSString(const void* const object, char* buffer, int bufferLength)
 {
-    int length = getTaggedNSStringLength(object);
+    int length = plobjc_get_tagged_NSString_length(object);
     int copyLength = ((length + 1) > bufferLength) ? (bufferLength - 1) : length;
-    uintptr_t payload = getTaggedPayload(object);
+    uintptr_t payload =  plobjc_get_tagged_payload(object);
     uintptr_t value = payload >> 4;
     static char* alphabet = "eilotrm.apdnsIc ufkMShjTRxgC4013bDNvwyUL2O856P-B79AFKEWV_zGJ/HYX";
     if(length <=7)
@@ -306,9 +306,9 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
  * @param object The NSDate object (must be a tagged pointer).
  * @return The date's absolute time.
  */
-static CFAbsoluteTime extractTaggedNSDate(const void* const object)
+static CFAbsoluteTime plobjc_extract_tagged_NSDate(const void* const object)
 {
-    uintptr_t payload = getTaggedPayload(object);
+    uintptr_t payload =  plobjc_get_tagged_payload(object);
     // Payload is a 60-bit float. Fortunately we can just cast across from
     // an integer pointer after shifting out the upper 4 bits.
     payload <<= 4;
@@ -316,7 +316,7 @@ static CFAbsoluteTime extractTaggedNSDate(const void* const object)
     return value;
 }
 
-static int stringPrintf(char* buffer, int bufferLength, const char* fmt, ...)
+static int plobjc_string_printf(char* buffer, int bufferLength, const char* fmt, ...)
 {
     unlikely_if(bufferLength == 0)
     {
@@ -354,7 +354,7 @@ static int stringPrintf(char* buffer, int bufferLength, const char* fmt, ...)
 #define N_S 7 // Name start character: Valid for anything.
 #define T_C 4 // Type character: Valid for types only.
 
-static const unsigned int g_nameChars[] =
+static const unsigned int plobjc_g_name_chars[] =
 {
     INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
     INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
@@ -374,11 +374,11 @@ static const unsigned int g_nameChars[] =
     INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
 };
 
-#define VALID_NAME_CHAR(A) ((g_nameChars[(uint8_t)(A)] & 1) != 0)
-#define VALID_NAME_START_CHAR(A) ((g_nameChars[(uint8_t)(A)] & 2) != 0)
-#define VALID_TYPE_CHAR(A) ((g_nameChars[(uint8_t)(A)] & 7) != 0)
+#define VALID_NAME_CHAR(A) ((plobjc_g_name_chars[(uint8_t)(A)] & 1) != 0)
+#define VALID_NAME_START_CHAR(A) ((plobjc_g_name_chars[(uint8_t)(A)] & 2) != 0)
+#define VALID_TYPE_CHAR(A) ((plobjc_g_name_chars[(uint8_t)(A)] & 7) != 0)
 
-static bool isValidName(const char* const name, const int maxLength)
+static bool plobjc_is_valid_name(const char* const name, const int maxLength)
 {
     if((uintptr_t)name + (unsigned)maxLength < (uintptr_t)name)
     {
@@ -387,7 +387,7 @@ static bool isValidName(const char* const name, const int maxLength)
     }
 
     char buffer[maxLength];
-    int length = plmem_copyMaxPossible(name, buffer, maxLength);
+    int length = plmem_copy_max_possible(name, buffer, maxLength);
     if(length == 0 || !VALID_NAME_START_CHAR(name[0]))
     {
         return false;
@@ -406,7 +406,7 @@ static bool isValidName(const char* const name, const int maxLength)
     return false;
 }
 
-static bool isValidIvarType(const char* const type)
+static bool plobjc_is_valid_Ivar_Type(const char* const type)
 {
     char buffer[100];
     const int maxLength = sizeof(buffer);
@@ -417,7 +417,7 @@ static bool isValidIvarType(const char* const type)
         return false;
     }
 
-    int length = plmem_copyMaxPossible(type, buffer, maxLength);
+    int length = plmem_copy_max_possible(type, buffer, maxLength);
     if(length == 0 || !VALID_TYPE_CHAR(type[0]))
     {
         return false;
@@ -435,35 +435,35 @@ static bool isValidIvarType(const char* const type)
     return false;
 }
 
-static bool containsValidROData(const void* const classPtr)
+static bool plobjc_contains_valid_RO_data(const void* const classPtr)
 {
     const struct class_t* const class = classPtr;
-    if(!plmem_isMemoryReadable(class, sizeof(*class)))
+    if(!plmem_is_memory_readable(class, sizeof(*class)))
     {
         return false;
     }
-    class_rw_t* rw = getClassRW(class);
-    if(!plmem_isMemoryReadable(rw, sizeof(*rw)))
+    class_rw_t* rw = plobjc_get_class_RW(class);
+    if(!plmem_is_memory_readable(rw, sizeof(*rw)))
     {
         return false;
     }
-    const class_ro_t* ro = getClassRO(class);
-    if(!plmem_isMemoryReadable(ro, sizeof(*ro)))
+    const class_ro_t* ro = plobjc_get_class_RO(class);
+    if(!plmem_is_memory_readable(ro, sizeof(*ro)))
     {
         return false;
     }
     return true;
 }
 
-static bool containsValidIvarData(const void* const classPtr)
+static bool plobjc_contains_valid_Ivar_data(const void* const classPtr)
 {
-    const struct class_ro_t* ro = getClassRO(classPtr);
+    const struct class_ro_t* ro = plobjc_get_class_RO(classPtr);
     const struct ivar_list_t* ivars = ro->ivars;
     if(ivars == NULL)
     {
         return true;
     }
-    if(!plmem_isMemoryReadable(ivars, sizeof(*ivars)))
+    if(!plmem_is_memory_readable(ivars, sizeof(*ivars)))
     {
         return false;
     }
@@ -474,23 +474,23 @@ static bool containsValidIvarData(const void* const classPtr)
         uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsizeAndFlags;
         for(uint32_t i = 1; i < ivars->count; i++)
         {
-            if(!plmem_copySafely(ivarPtr, &ivar, sizeof(ivar)))
+            if(!plmem_copy_safely(ivarPtr, &ivar, sizeof(ivar)))
             {
                 return false;
             }
-            if(!plmem_isMemoryReadable(ivarPtr, (int)ivars->entsizeAndFlags))
+            if(!plmem_is_memory_readable(ivarPtr, (int)ivars->entsizeAndFlags))
             {
                 return false;
             }
-            if(!plmem_isMemoryReadable(ivar.offset, sizeof(*ivar.offset)))
+            if(!plmem_is_memory_readable(ivar.offset, sizeof(*ivar.offset)))
             {
                 return false;
             }
-            if(!isValidName(ivar.name, kMaxNameLength))
+            if(!plobjc_is_valid_name(ivar.name, kPLMaxNameLength))
             {
                 return false;
             }
-            if(!isValidIvarType(ivar.type))
+            if(!plobjc_is_valid_Ivar_Type(ivar.type))
             {
                 return false;
             }
@@ -500,55 +500,55 @@ static bool containsValidIvarData(const void* const classPtr)
     return true;
 }
 
-static bool containsValidClassName(const void* const classPtr)
+static bool plobjc_contains_valid_class_name(const void* const classPtr)
 {
-    const struct class_ro_t* ro = getClassRO(classPtr);
-    return isValidName(ro->name, kMaxNameLength);
+    const struct class_ro_t* ro = plobjc_get_class_RO(classPtr);
+    return plobjc_is_valid_name(ro->name, kPLMaxNameLength);
 }
 
-static bool hasValidIsaPointer(const void* object) {
-    const struct class_t* isaPtr = getIsaPointer(object);
-    return plmem_isMemoryReadable(isaPtr, sizeof(*isaPtr));
+static bool plobjc_has_valid_Isa_pointer(const void* object) {
+    const struct class_t* isaPtr = plobjc_get_Isa_pointer(object);
+    return plmem_is_memory_readable(isaPtr, sizeof(*isaPtr));
 }
 
-static inline bool isValidClass(const void* classPtr)
+static inline bool plobjc_is_valid_class(const void* classPtr)
 {
     const class_t* class = classPtr;
-    if(!plmem_isMemoryReadable(class, sizeof(*class)))
+    if(!plmem_is_memory_readable(class, sizeof(*class)))
     {
         return false;
     }
-    if(!containsValidROData(class))
+    if(!plobjc_contains_valid_RO_data(class))
     {
         return false;
     }
-    if(!containsValidClassName(class))
+    if(!plobjc_contains_valid_class_name(class))
     {
         return false;
     }
-    if(!containsValidIvarData(class))
+    if(!plobjc_contains_valid_Ivar_data(class))
     {
         return false;
     }
     return true;
 }
 
-static inline bool isValidObject(const void* objectPtr)
+static inline bool plobjc_is_valid_object(const void* objectPtr)
 {
-    if(isTaggedPointer(objectPtr))
+    if(plobjc_is_tagged_pointer_internal(objectPtr))
     {
-        return isValidTaggedPointer(objectPtr);
+        return plobjc_is_valid_tagged_pointer_internal(objectPtr);
     }
     const class_t* object = objectPtr;
-    if(!plmem_isMemoryReadable(object, sizeof(*object)))
+    if(!plmem_is_memory_readable(object, sizeof(*object)))
     {
         return false;
     }
-    if(!hasValidIsaPointer(object))
+    if(!plobjc_has_valid_Isa_pointer(object))
     {
         return false;
     }
-    if(!isValidClass(getIsaPointer(object)))
+    if(!plobjc_is_valid_class(plobjc_get_Isa_pointer(object)))
     {
         return false;
     }
@@ -569,13 +569,13 @@ static const void* plobjc_baseClass(const void* const classPtr)
     
     for(int i = 0; i < 20; i++)
     {
-        if(isRootClass(superClass))
+        if(plobjc_is_root_class(superClass))
         {
             return subClass;
         }
         subClass = superClass;
         superClass = superClass->superclass;
-        if(!containsValidROData(superClass))
+        if(!plobjc_contains_valid_RO_data(superClass))
         {
             return NULL;
         }
@@ -583,50 +583,50 @@ static const void* plobjc_baseClass(const void* const classPtr)
     return NULL;
 }
 
-static inline bool isBlockClass(const void* class)
+static inline bool plobjc_is_block_class(const void* class)
 {
     const void* baseClass = plobjc_baseClass(class);
     if(baseClass == NULL)
     {
         return false;
     }
-    const char* name = getClassName(baseClass);
+    const char* name = plobjc_get_class_name(baseClass);
     if(name == NULL)
     {
         return false;
     }
-    return strcmp(name, g_blockBaseClassName) == 0;
+    return strcmp(name, g_block_base_class_name) == 0;
 }
 
-PLObjCType plobjc_objectType(const void* objectOrClassPtr)
+PLObjCType plobjc_object_type(const void* objectOrClassPtr)
 {
     if(objectOrClassPtr == NULL)
     {
         return PLObjCTypeUnknown;
     }
 
-    if(isTaggedPointer(objectOrClassPtr))
+    if(plobjc_is_tagged_pointer_internal(objectOrClassPtr))
     {
         return PLObjCTypeObject;
     }
     
-    if(!isValidObject(objectOrClassPtr))
+    if(!plobjc_is_valid_object(objectOrClassPtr))
     {
         return PLObjCTypeUnknown;
     }
     
-    if(!isValidClass(objectOrClassPtr))
+    if(!plobjc_is_valid_class(objectOrClassPtr))
     {
         return PLObjCTypeUnknown;
     }
     
-    const struct class_t* isa = getIsaPointer(objectOrClassPtr);
+    const struct class_t* isa = plobjc_get_Isa_pointer(objectOrClassPtr);
 
-    if(isBlockClass(isa))
+    if(plobjc_is_block_class(isa))
     {
         return PLObjCTypeBlock;
     }
-    if(!isMetaClass(isa))
+    if(!plobjc_is_meta_class(isa))
     {
         return PLObjCTypeObject;
     }
@@ -639,18 +639,18 @@ PLObjCType plobjc_objectType(const void* objectOrClassPtr)
 #pragma mark - Unknown Object -
 //======================================================================
 
-static bool taggedObjectIsValid(const void* object)
+static bool plobjc_tagged_object_is_valid(const void* object)
 {
-    return isValidTaggedPointer(object);
+    return plobjc_is_valid_tagged_pointer_internal(object);
 }
 
-static int taggedObjectDescription(const void* object, char* buffer, int bufferLength)
+static int plobjc_tagged_object_description(const void* object, char* buffer, int bufferLength)
 {
-    const ClassData* data = getClassDataFromTaggedPointer(object);
+    const ClassData* data = plobjc_get_class_data_from_tagged_pointer(object);
     const char* name = data->name;
     uintptr_t objPointer = (uintptr_t)object;
     const char* fmt = sizeof(uintptr_t) == sizeof(uint32_t) ? "<%s: 0x%08x>" : "<%s: 0x%016x>";
-    return stringPrintf(buffer, bufferLength, fmt, name, objPointer);
+    return plobjc_string_printf(buffer, bufferLength, fmt, name, objPointer);
 }
 
 
@@ -658,33 +658,33 @@ static int taggedObjectDescription(const void* object, char* buffer, int bufferL
 #pragma mark - NSString -
 //======================================================================
 
-static bool taggedStringIsValid(const void* const object)
+static bool plobjc_tagged_string_is_valid(const void* const object)
 {
-    return isValidTaggedPointer(object) && isTaggedPointerNSString(object);
+    return plobjc_is_valid_tagged_pointer_internal(object) && plobjc_is_tagged_pointer_internalNSString(object);
 }
 
-static int taggedStringDescription(const void* object, char* buffer, __unused int bufferLength)
+static int plobjc_tagged_string_description(const void* object, char* buffer, __unused int bufferLength)
 {
-    return extractTaggedNSString(object, buffer, bufferLength);
+    return plobjc_extract_tagged_NSString(object, buffer, bufferLength);
 }
 
 //======================================================================
 #pragma mark - NSDate -
 //======================================================================
 
-static bool taggedDateIsValid(const void* const datePtr)
+static bool plobjc_tagged_date_is_valid(const void* const datePtr)
 {
-    return isValidTaggedPointer(datePtr) && isTaggedPointerNSDate(datePtr);
+    return plobjc_is_valid_tagged_pointer_internal(datePtr) && plobjc_is_tagged_pointer_internalNSDate(datePtr);
 }
 
-static int taggedDateDescription(const void* object, char* buffer, int bufferLength)
+static int plobjc_tagged_date_description(const void* object, char* buffer, int bufferLength)
 {
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
 
-    CFAbsoluteTime time = extractTaggedNSDate(object);
-    pBuffer += taggedObjectDescription(object, pBuffer, (int)(pEnd - pBuffer));
-    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
+    CFAbsoluteTime time = plobjc_extract_tagged_NSDate(object);
+    pBuffer += plobjc_tagged_object_description(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += plobjc_string_printf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
 
     return (int)(pBuffer - buffer);
 }
@@ -694,19 +694,19 @@ static int taggedDateDescription(const void* object, char* buffer, int bufferLen
 #pragma mark - NSNumber -
 //======================================================================
 
-static bool taggedNumberIsValid(const void* const object)
+static bool plobjc_tagged_number_is_valid(const void* const object)
 {
-    return isValidTaggedPointer(object) && isTaggedPointerNSNumber(object);
+    return plobjc_is_valid_tagged_pointer_internal(object) && plobjc_is_tagged_pointer_internalNSNumber(object);
 }
 
-static int taggedNumberDescription(const void* object, char* buffer, int bufferLength)
+static int plobjc_tagged_number_description(const void* object, char* buffer, int bufferLength)
 {
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
 
-    int64_t value = extractTaggedNSNumber(object);
-    pBuffer += taggedObjectDescription(object, pBuffer, (int)(pEnd - pBuffer));
-    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %" PRId64, value);
+    int64_t value = plobjc_extract_tagged_NSNumber(object);
+    pBuffer += plobjc_tagged_object_description(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += plobjc_string_printf(pBuffer, (int)(pEnd - pBuffer), ": %" PRId64, value);
 
     return (int)(pBuffer - buffer);
 }
@@ -715,12 +715,12 @@ static int taggedNumberDescription(const void* object, char* buffer, int bufferL
 #pragma mark - General Queries -
 //======================================================================
 
-bool plobjc_isTaggedPointer(const void* const pointer)
+bool plobjc_is_tagged_pointer(const void* const pointer)
 {
-    return isTaggedPointer(pointer);
+    return plobjc_is_tagged_pointer_internal(pointer);
 }
 
-bool plobjc_isValidTaggedPointer(const void* const pointer)
+bool plobjc_is_valid_tagged_pointer(const void* const pointer)
 {
-    return isValidTaggedPointer(pointer);
+    return plobjc_is_valid_tagged_pointer_internal(pointer);
 }

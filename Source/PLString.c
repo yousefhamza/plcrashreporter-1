@@ -36,11 +36,11 @@
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
 
-bool plstring_isNullTerminatedUTF8String(const void* memory,
-                                         int minLength,
-                                         int maxLength);
+bool plstring_is_null_terminated_UTF8_string(const void* memory,
+                                             int minLength,
+                                             int maxLength);
 
-static const int g_printableControlChars[0x20] =
+static const int g_printable_control_chars[0x20] =
 {
     // Only tab, CR, and LF are considered printable
     // 1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
@@ -48,7 +48,7 @@ static const int g_printableControlChars[0x20] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static const int g_continuationByteCount[0x40] =
+static const int g_continuation_byte_count[0x40] =
 {
     /*
      --0xxxxx = 1 (00-1f)
@@ -64,7 +64,7 @@ static const int g_continuationByteCount[0x40] =
     3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 0, 0,
 };
 
-bool plstring_isNullTerminatedUTF8String(const void* memory,
+bool plstring_is_null_terminated_UTF8_string(const void* memory,
                                         int minLength,
                                         int maxLength)
 {
@@ -84,7 +84,7 @@ bool plstring_isNullTerminatedUTF8String(const void* memory,
             {
                 return false;
             }
-            int continuationBytes = g_continuationByteCount[ch & 0x3f];
+            int continuationBytes = g_continuation_byte_count[ch & 0x3f];
             unlikely_if(continuationBytes == 0 || ptr + continuationBytes >= end)
             {
                 return false;
@@ -98,7 +98,7 @@ bool plstring_isNullTerminatedUTF8String(const void* memory,
                 }
             }
         }
-        else unlikely_if(ch < 0x20 && !g_printableControlChars[ch])
+        else unlikely_if(ch < 0x20 && !g_printable_control_chars[ch])
         {
             return false;
         }
@@ -119,9 +119,9 @@ bool plstring_is_valid(const void* const address)
         // Wrapped around the address range.
         return false;
     }
-    if(!plmem_copySafely(address, buffer, sizeof(buffer)))
+    if(!plmem_copy_safely(address, buffer, sizeof(buffer)))
     {
         return false;
     }
-    return plstring_isNullTerminatedUTF8String(buffer, kPLMinStringLength, sizeof(buffer));
+    return plstring_is_null_terminated_UTF8_string(buffer, kPLMinStringLength, sizeof(buffer));
 }

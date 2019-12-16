@@ -47,7 +47,7 @@ extern "C" {
  *
  * @return True if the memory can be safely read.
  */
-bool plmem_isMemoryReadable(const void* const memory, const int byteCount);
+bool plmem_is_memory_readable(const void* const memory, const int byteCount);
 
 /** Copy memory safely. If the memory is not accessible, returns false
  * rather than crashing.
@@ -60,7 +60,7 @@ bool plmem_isMemoryReadable(const void* const memory, const int byteCount);
  *
  * @return true if successful.
  */
-bool plmem_copySafely(const void* restrict const src, void* restrict const dst, int byteCount);
+bool plmem_copy_safely(const void* restrict const src, void* restrict const dst, int byteCount);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
@@ -73,7 +73,7 @@ bool plmem_copySafely(const void* restrict const src, void* restrict const dst, 
  *
  * @return The number of bytes actually copied.
  */
-int plmem_copyMaxPossible(const void* restrict const src, void* restrict const dst, int byteCount);
+int plmem_copy_max_possible(const void* restrict const src, void* restrict const dst, int byteCount);
 
 #ifdef __cplusplus
 }
