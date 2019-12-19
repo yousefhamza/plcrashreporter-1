@@ -38,11 +38,6 @@ bool plregister_is_notable_address(const uintptr_t address)
     
     const void* object = (const void*)address;
 
-    if(plobjc_object_type(object) != PLObjCTypeUnknown)
-    {
-        return true;
-    }
-
     if(plstring_is_valid(object))
     {
         return true;

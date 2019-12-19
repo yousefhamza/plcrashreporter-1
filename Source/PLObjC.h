@@ -57,14 +57,6 @@ typedef enum
     PLObjCClassTypeException,
 } PLObjCClassType;
 
-typedef struct
-{
-    const char* name;
-    const char* type;
-    int index;
-} PLObjCIvar;
-
-
 //======================================================================
 #pragma mark - Basic Objective-C Queries -
 //======================================================================
@@ -82,25 +74,6 @@ bool plobjc_is_tagged_pointer(const void* const pointer);
  * @return true if it's a valid tagged pointer.
  */
 bool plobjc_is_valid_tagged_pointer(const void* const pointer);
-    
-/** Query a pointer to see what kind of object it points to.
- * If the pointer points to a class, this method will verify that its basic
- * class data and ivars are valid,
- * If the pointer points to an object, it will verify the object data (if
- * recognized as a common class), and the isa's basic class info (everything
- * except ivars).
- *
- * Warning: In order to ensure that an object is both valid and accessible,
- *          always call this method on an object or class pointer (including
- *          those returned by plobjc_isaPointer() and plobjc_superclass())
- *          BEFORE calling any other function in this module.
- *
- * @param objectOrClassPtr Pointer to something that may be an object or class.
- *
- * @return The type of object, or PLObjCTypeNone if it was not an object or
- *         was inaccessible.
- */
-PLObjCType plobjc_object_type(const void* objectOrClassPtr);
 
 #ifdef __cplusplus
 }

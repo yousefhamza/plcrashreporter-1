@@ -43,10 +43,13 @@ typedef int NSInteger;
 typedef unsigned int NSUInteger;
 #endif
 #endif
+
+#include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreGraphics/CGBase.h>
 #include <inttypes.h>
 #include <objc/runtime.h>
+#include <objc/objc.h>
 
 
 #define kPLMaxNameLength 128
@@ -113,8 +116,6 @@ static ClassData g_tagged_class_data[] =
 };
 static int g_tagged_class_data_count = sizeof(g_tagged_class_data) / sizeof(*g_tagged_class_data);
 
-static const char* g_block_base_class_name = "NSBlock";
-
 
 //======================================================================
 #pragma mark - Utility -
@@ -152,58 +153,6 @@ static bool plobjc_is_valid_tagged_pointer_internal(const void* object)
         }
     }
     return false;
-}
-
-static const struct class_t* plobjc_decode_Isa_pointer(const void* const isaPointer)
-{
-#if ISA_TAG_MASK
-    uintptr_t isa = (uintptr_t)isaPointer;
-    if(isa & ISA_TAG_MASK)
-    {
-#if defined(__arm64__)
-        if (floor(kCFCoreFoundationVersionNumber) <= kCFCoreFoundationVersionNumber_iOS_8_x_Max) {
-            return (const struct class_t*)(isa & ISA_MASK_OLD);
-        }
-        return (const struct class_t*)(isa & ISA_MASK);
-#else
-        return (const struct class_t*)(isa & ISA_MASK);
-#endif
-    }
-#endif
-    return (const struct class_t*)isaPointer;
-}
-
-static const void* plobjc_get_Isa_pointer(const void* const objectOrClassPtr)
-{
-    const struct class_t* ptr = objectOrClassPtr;
-    return plobjc_decode_Isa_pointer(ptr->isa);
-}
-
-static inline struct class_rw_t* plobjc_get_class_RW(const struct class_t* const class)
-{
-    uintptr_t ptr = class->data_NEVER_USE & (~WORD_MASK);
-    return (struct class_rw_t*)ptr;
-}
-
-static inline const struct class_ro_t* plobjc_get_class_RO(const struct class_t* const class)
-{
-    return plobjc_get_class_RW(class)->ro;
-}
-
-static inline bool plobjc_is_meta_class(const void* const classPtr)
-{
-    return (plobjc_get_class_RO(classPtr)->flags & RO_META) != 0;
-}
-
-static inline bool plobjc_is_root_class(const void* const classPtr)
-{
-    return (plobjc_get_class_RO(classPtr)->flags & RO_ROOT) != 0;
-}
-
-static inline const char* plobjc_get_class_name(const void* classPtr)
-{
-    const struct class_ro_t* ro = plobjc_get_class_RO(classPtr);
-    return ro->name;
 }
 
 /** Check if a tagged pointer is a number.
@@ -340,301 +289,6 @@ static int plobjc_string_printf(char* buffer, int bufferLength, const char* fmt,
     return printLength;
 }
 
-
-//======================================================================
-#pragma mark - Validation -
-//======================================================================
-
-// Lookup table for validating class/ivar names and objc @encode types.
-// An ivar name must start with a letter, and can contain letters & numbers.
-// An ivar type can in theory be any combination of numbers, letters, and symbols
-// in the ASCII range (0x21-0x7e).
-#define INV 0 // Invalid.
-#define N_C 5 // Name character: Valid for anything except the first letter of a name.
-#define N_S 7 // Name start character: Valid for anything.
-#define T_C 4 // Type character: Valid for types only.
-
-static const unsigned int plobjc_g_name_chars[] =
-{
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C,
-    N_C, N_C, N_C, N_C, N_C, N_C, N_C, N_C, N_C, N_C, T_C, T_C, T_C, T_C, T_C, T_C,
-    T_C, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S,
-    N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, T_C, T_C, T_C, T_C, N_S,
-    T_C, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S,
-    N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, T_C, T_C, T_C, T_C, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
-};
-
-#define VALID_NAME_CHAR(A) ((plobjc_g_name_chars[(uint8_t)(A)] & 1) != 0)
-#define VALID_NAME_START_CHAR(A) ((plobjc_g_name_chars[(uint8_t)(A)] & 2) != 0)
-#define VALID_TYPE_CHAR(A) ((plobjc_g_name_chars[(uint8_t)(A)] & 7) != 0)
-
-static bool plobjc_is_valid_name(const char* const name, const int maxLength)
-{
-    if((uintptr_t)name + (unsigned)maxLength < (uintptr_t)name)
-    {
-        // Wrapped around address space.
-        return false;
-    }
-
-    char buffer[maxLength];
-    int length = plmem_copy_max_possible(name, buffer, maxLength);
-    if(length == 0 || !VALID_NAME_START_CHAR(name[0]))
-    {
-        return false;
-    }
-    for(int i = 1; i < length; i++)
-    {
-        unlikely_if(!VALID_NAME_CHAR(name[i]))
-        {
-            if(name[i] == 0)
-            {
-                return true;
-            }
-            return false;
-        }
-    }
-    return false;
-}
-
-static bool plobjc_is_valid_Ivar_Type(const char* const type)
-{
-    char buffer[100];
-    const int maxLength = sizeof(buffer);
-
-    if((uintptr_t)type + maxLength < (uintptr_t)type)
-    {
-        // Wrapped around address space.
-        return false;
-    }
-
-    int length = plmem_copy_max_possible(type, buffer, maxLength);
-    if(length == 0 || !VALID_TYPE_CHAR(type[0]))
-    {
-        return false;
-    }
-    for(int i = 0; i < length; i++)
-    {
-        unlikely_if(!VALID_TYPE_CHAR(type[i]))
-        {
-            if(type[i] == 0)
-            {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-static bool plobjc_contains_valid_RO_data(const void* const classPtr)
-{
-    const struct class_t* const class = classPtr;
-    if(!plmem_is_memory_readable(class, sizeof(*class)))
-    {
-        return false;
-    }
-    class_rw_t* rw = plobjc_get_class_RW(class);
-    if(!plmem_is_memory_readable(rw, sizeof(*rw)))
-    {
-        return false;
-    }
-    const class_ro_t* ro = plobjc_get_class_RO(class);
-    if(!plmem_is_memory_readable(ro, sizeof(*ro)))
-    {
-        return false;
-    }
-    return true;
-}
-
-static bool plobjc_contains_valid_Ivar_data(const void* const classPtr)
-{
-    const struct class_ro_t* ro = plobjc_get_class_RO(classPtr);
-    const struct ivar_list_t* ivars = ro->ivars;
-    if(ivars == NULL)
-    {
-        return true;
-    }
-    if(!plmem_is_memory_readable(ivars, sizeof(*ivars)))
-    {
-        return false;
-    }
-    
-    if(ivars->count > 0)
-    {
-        struct ivar_t ivar;
-        uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsizeAndFlags;
-        for(uint32_t i = 1; i < ivars->count; i++)
-        {
-            if(!plmem_copy_safely(ivarPtr, &ivar, sizeof(ivar)))
-            {
-                return false;
-            }
-            if(!plmem_is_memory_readable(ivarPtr, (int)ivars->entsizeAndFlags))
-            {
-                return false;
-            }
-            if(!plmem_is_memory_readable(ivar.offset, sizeof(*ivar.offset)))
-            {
-                return false;
-            }
-            if(!plobjc_is_valid_name(ivar.name, kPLMaxNameLength))
-            {
-                return false;
-            }
-            if(!plobjc_is_valid_Ivar_Type(ivar.type))
-            {
-                return false;
-            }
-            ivarPtr += ivars->entsizeAndFlags;
-        }
-    }
-    return true;
-}
-
-static bool plobjc_contains_valid_class_name(const void* const classPtr)
-{
-    const struct class_ro_t* ro = plobjc_get_class_RO(classPtr);
-    return plobjc_is_valid_name(ro->name, kPLMaxNameLength);
-}
-
-static bool plobjc_has_valid_Isa_pointer(const void* object) {
-    const struct class_t* isaPtr = plobjc_get_Isa_pointer(object);
-    return plmem_is_memory_readable(isaPtr, sizeof(*isaPtr));
-}
-
-static inline bool plobjc_is_valid_class(const void* classPtr)
-{
-    const class_t* class = classPtr;
-    if(!plmem_is_memory_readable(class, sizeof(*class)))
-    {
-        return false;
-    }
-    if(!plobjc_contains_valid_RO_data(class))
-    {
-        return false;
-    }
-    if(!plobjc_contains_valid_class_name(class))
-    {
-        return false;
-    }
-    if(!plobjc_contains_valid_Ivar_data(class))
-    {
-        return false;
-    }
-    return true;
-}
-
-static inline bool plobjc_is_valid_object(const void* objectPtr)
-{
-    if(plobjc_is_tagged_pointer_internal(objectPtr))
-    {
-        return plobjc_is_valid_tagged_pointer_internal(objectPtr);
-    }
-    const class_t* object = objectPtr;
-    if(!plmem_is_memory_readable(object, sizeof(*object)))
-    {
-        return false;
-    }
-    if(!plobjc_has_valid_Isa_pointer(object))
-    {
-        return false;
-    }
-    if(!plobjc_is_valid_class(plobjc_get_Isa_pointer(object)))
-    {
-        return false;
-    }
-    return true;
-}
-
-
-
-//======================================================================
-#pragma mark - Basic Objective-C Queries -
-//======================================================================
-
-
-static const void* plobjc_baseClass(const void* const classPtr)
-{
-    const struct class_t* superClass = classPtr;
-    const struct class_t* subClass = classPtr;
-    
-    for(int i = 0; i < 20; i++)
-    {
-        if(plobjc_is_root_class(superClass))
-        {
-            return subClass;
-        }
-        subClass = superClass;
-        superClass = superClass->superclass;
-        if(!plobjc_contains_valid_RO_data(superClass))
-        {
-            return NULL;
-        }
-    }
-    return NULL;
-}
-
-static inline bool plobjc_is_block_class(const void* class)
-{
-    const void* baseClass = plobjc_baseClass(class);
-    if(baseClass == NULL)
-    {
-        return false;
-    }
-    const char* name = plobjc_get_class_name(baseClass);
-    if(name == NULL)
-    {
-        return false;
-    }
-    return strcmp(name, g_block_base_class_name) == 0;
-}
-
-PLObjCType plobjc_object_type(const void* objectOrClassPtr)
-{
-    if(objectOrClassPtr == NULL)
-    {
-        return PLObjCTypeUnknown;
-    }
-
-    if(plobjc_is_tagged_pointer_internal(objectOrClassPtr))
-    {
-        return PLObjCTypeObject;
-    }
-    
-    if(!plobjc_is_valid_object(objectOrClassPtr))
-    {
-        return PLObjCTypeUnknown;
-    }
-    
-    if(!plobjc_is_valid_class(objectOrClassPtr))
-    {
-        return PLObjCTypeUnknown;
-    }
-    
-    const struct class_t* isa = plobjc_get_Isa_pointer(objectOrClassPtr);
-
-    if(plobjc_is_block_class(isa))
-    {
-        return PLObjCTypeBlock;
-    }
-    if(!plobjc_is_meta_class(isa))
-    {
-        return PLObjCTypeObject;
-    }
-    
-    return PLObjCTypeClass;
-}
-
-
 //======================================================================
 #pragma mark - Unknown Object -
 //======================================================================
@@ -714,6 +368,7 @@ static int plobjc_tagged_number_description(const void* object, char* buffer, in
 //======================================================================
 #pragma mark - General Queries -
 //======================================================================
+
 
 bool plobjc_is_tagged_pointer(const void* const pointer)
 {
