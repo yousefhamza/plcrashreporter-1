@@ -209,9 +209,9 @@ error:
  */
 - (PLCrashReportBinaryImageInfo *) imageForAddress: (uint64_t) address {
     for (PLCrashReportBinaryImageInfo *imageInfo in self.images) {
-      uint64_t normalizedBaseAddress = imageInfo.imageBaseAddress;
+        uint64_t normalizedBaseAddress = imageInfo.imageBaseAddress;
 #if __DARWIN_OPAQUE_ARM_THREAD_STATE64
-      normalizedBaseAddress = normalizedBaseAddress & 0x0000000fffffffff;
+        normalizedBaseAddress &= 0x0000000fffffffff;
 #endif
         if (normalizedBaseAddress <= address && address < (normalizedBaseAddress + imageInfo.imageSize))
             return imageInfo;
@@ -644,8 +644,20 @@ error:
                 return nil;
             }
 
+            NSString *regiserType = nil;
+            if (reg->type != NULL) {
+                regiserType = [NSString stringWithUTF8String:reg->type];
+            }
+
+            NSString *registerContent = nil;
+            if (reg->content != NULL) {
+                registerContent = [NSString stringWithUTF8String:reg->content];
+            }
+
             regInfo = [[[PLCrashReportRegisterInfo alloc] initWithRegisterName: [NSString stringWithUTF8String: reg->name]
-                                                              registerValue: reg->value] autorelease];
+                                                              registerValue: reg->value
+                                                                  registerType:regiserType
+                                                                 registerValue:registerContent] autorelease];
             [registers addObject: regInfo];
         }
 

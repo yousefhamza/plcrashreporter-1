@@ -271,6 +271,14 @@
 #define plframe_strerror PLNS(plframe_strerror)
 #define plframe_test_thread_spawn PLNS(plframe_test_thread_spawn)
 #define plframe_test_thread_stop PLNS(plframe_test_thread_stop)
+#define plregister_is_notable_address PLNS(plregister_is_notable_address)
+#define plstring_is_valid PLNS(plstring_is_valid)
+#define plobjc_isTaggedPointer PLNS(plobjc_isTaggedPointer)
+#define plobjc_is_valid_tagged_pointer PLNS(plobjc_is_valid_tagged_pointer)
+#define plobjc_object_type PLNS(plobjc_object_type)
+#define plmem_is_memory_readable PLNS(plmem_is_memory_readable)
+#define plmem_copy_safely PLNS(plmem_copy_safely)
+#define plmem_copy_max_possible PLNS(plmem_copy_max_possible)
 
 #endif
 

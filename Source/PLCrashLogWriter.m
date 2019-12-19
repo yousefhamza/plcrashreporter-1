@@ -45,13 +45,13 @@
 #import "PLCrashLogWriterEncoding.h"
 #import "PLCrashAsyncSignalInfo.h"
 #import "PLCrashAsyncSymbolication.h"
+#include "PLCrashRegisterContent.h"
 
 #import "PLCrashSysctl.h"
 #import "PLCrashProcessInfo.h"
 
-#if TARGET_OS_IPHONE
-#import <UIKit/UIKit.h> // For UIDevice
-#endif
+#import "PLObjC.h"
+#import "PLString.h"
 
 /**
  * @internal
@@ -135,6 +135,12 @@ enum {
 
     /** CrashReport.thread.register.value */
     PLCRASH_PROTO_THREAD_REGISTER_VALUE_ID = 2,
+    
+    /** CrashReport.thread.register.type */
+    PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID = 3,
+    
+    /** CrashReport.thread.register.content */
+    PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID = 4,
 
 
     /** CrashReport.images */
@@ -429,8 +435,17 @@ plcrash_error_t plcrash_log_writer_init (plcrash_log_writer_t *writer,
     }
 
 #if TARGET_OS_IPHONE
-    /* iPhone OS */
-    writer->system_info.version = strdup([[[UIDevice currentDevice] systemVersion] UTF8String]);
+    /* iOS and tvOS */
+    {
+        NSProcessInfo *processInfo = [NSProcessInfo processInfo];
+        NSOperatingSystemVersion systemVersion = processInfo.operatingSystemVersion;
+        NSString *systemVersionString = [NSString stringWithFormat:@"%ld.%ld", (long)systemVersion.majorVersion, (long)systemVersion.minorVersion];
+        if (systemVersion.patchVersion > 0) {
+            systemVersionString = [systemVersionString stringByAppendingFormat:@".%ld", (long)systemVersion.patchVersion];
+        }
+
+        writer->system_info.version = strdup([systemVersionString UTF8String]);
+    }
 #elif TARGET_OS_MAC
     /* Mac OS X */
     {
@@ -476,7 +491,7 @@ void plcrash_log_writer_set_exception (plcrash_log_writer_t *writer, NSException
     /* Save the exception data */
     writer->uncaught_exception.has_exception = true;
     writer->uncaught_exception.name = strdup([[exception name] UTF8String]);
-    writer->uncaught_exception.reason = strdup([[exception reason] UTF8String]);
+    writer->uncaught_exception.reason = strdup([exception reason] != nil ? [[exception reason] UTF8String] : "");
 
     /* Save the call stack, if available */
     NSArray *callStackArray = [exception callStackReturnAddresses];
@@ -735,6 +750,32 @@ static size_t plcrash_writer_write_process_info (plcrash_async_file_t *file, con
     return rv;
 }
 
+#pragma mark - Memory Types -
+
+#define PLCrashMemType_NullPointer         "null_pointer"
+#define PLCrashMemType_String              "string"
+#define PLCrashMemType_Unknown             "unknown"
+
+static size_t plcrash_writer_write_thread_register_content(plcrash_async_file_t *file, const char* const regname, const uintptr_t address) {
+    size_t rv = 0;
+    const void* object = (const void*)address;
+    if(object == NULL)
+    {
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_NullPointer);
+    }
+    else if(plstring_is_valid(object))
+    {
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_String);
+        
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_CONTENT_ID, PLPROTOBUF_C_TYPE_STRING, (const char*)object);
+    }
+    else
+    {
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_TYPE_ID, PLPROTOBUF_C_TYPE_STRING, PLCrashMemType_Unknown);
+    }
+    return rv;
+}
+
 /**
  * @internal
  *
@@ -754,6 +795,10 @@ static size_t plcrash_writer_write_thread_register (plcrash_async_file_t *file, 
     /* Write the value */
     uint64val = regval;
     rv += plcrash_writer_pack(file, PLCRASH_PROTO_THREAD_REGISTER_VALUE_ID, PLPROTOBUF_C_TYPE_UINT64, &uint64val);
+
+    if (plregister_is_notable_address(regval)) {
+        rv += plcrash_writer_write_thread_register_content(file, regname, regval);
+    }
     
     return rv;
 }
