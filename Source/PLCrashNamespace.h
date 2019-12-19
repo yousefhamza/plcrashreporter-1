@@ -273,7 +273,7 @@
 #define plframe_test_thread_stop PLNS(plframe_test_thread_stop)
 #define plregister_is_notable_address PLNS(plregister_is_notable_address)
 #define plstring_is_valid PLNS(plstring_is_valid)
-#define plobjc_is_tagged_pointerPLNS(plobjc_is_tagged_pointer)
+#define plobjc_isTaggedPointer PLNS(plobjc_isTaggedPointer)
 #define plobjc_is_valid_tagged_pointer PLNS(plobjc_is_valid_tagged_pointer)
 #define plobjc_object_type PLNS(plobjc_object_type)
 #define plmem_is_memory_readable PLNS(plmem_is_memory_readable)
